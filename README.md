@@ -22,7 +22,8 @@ This project demonstrates how modern frameworks like PyTorch and TensorFlow work
 ## 📐 Architecture
 
 The project is organized as a modular deep learning framework:
-'''text
+
+```text
 autograd_engine/
 ├── engine.h # Tensor API and autograd interface
 ├── engine.c # Tensor engine + reverse-mode autodiff
@@ -33,6 +34,7 @@ autograd_engine/
 ├── optim.h # Optimizer API
 ├── optim.c # SGD optimizer
 ├── main.c # Training loop
+```
 
 Each module mirrors how real ML frameworks are structured internally.
 
