@@ -93,8 +93,6 @@ This confirms the engine correctly performs forward propagation, backpropagation
 
 Requires:
 - GCC
-- Linux / macOS
-- math library (`-lm`)
 
 Compile:
 
