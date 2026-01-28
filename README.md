@@ -1,5 +1,5 @@
 # Autograd Engine in C
-Built a minimal deep learning framework in C from scratch featuring a reverse-mode autograd engine, dynamic computation graphs, tensor operations with broadcasting, and end-to-end model training using SGD.ing linear regression models.
+Built a minimal deep learning framework in C from scratch featuring a reverse-mode autograd engine, dynamic computation graphs, tensor operations with broadcasting, and end-to-end model training using SGD and successfully trained linear regression models.
 
 This project demonstrates how modern frameworks like PyTorch and TensorFlow work internally — from tensor algebra to backpropagation and optimization.
 
