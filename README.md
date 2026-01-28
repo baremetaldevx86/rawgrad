@@ -5,7 +5,7 @@ This project demonstrates how modern frameworks like PyTorch and TensorFlow work
 
 ---
 
-## 🚀 Features
+## Features
 
 - Reverse-mode automatic differentiation (backpropagation)
 - Dynamic computation graphs
@@ -19,7 +19,7 @@ This project demonstrates how modern frameworks like PyTorch and TensorFlow work
 
 ---
 
-## 📐 Architecture
+## Architecture
 
 The project is organized as a modular deep learning framework:
 
@@ -40,7 +40,7 @@ Each module mirrors how real ML frameworks are structured internally.
 
 ---
 
-## 🧠 What This Project Implements
+## What This Project Implements
 
 This project builds the full training stack from scratch:
 
@@ -58,7 +58,7 @@ Training | End-to-end model training loop |
 
 ---
 
-## 📊 Example: Training Linear Regression
+## Example: Training Linear Regression
 
 The framework is used to train a model to learn:
 
