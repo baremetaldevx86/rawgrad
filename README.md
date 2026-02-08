@@ -23,7 +23,7 @@ make train_mnist
 
 ### Example: Training MNIST
 
-1. Download MNIST dataset (http://yann.lecun.com/exdb/mnist/)
+1. Download MNIST dataset (https://github.com/cvdfoundation/mnist?tab=readme-ov-file)
 2. Extract files to `data/` directory:
    - `train-images-idx3-ubyte`
    - `train-labels-idx1-ubyte`
