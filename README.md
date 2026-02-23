@@ -41,7 +41,7 @@ The goal is to understand how modern deep learning systems work at the lowest le
 
 ## Project Structure
 
-```c
+```
 .
 ├── engine.c / engine.h # Tensor and autograd core
 ├── nn.c / nn.h # Neural network primitives
@@ -96,13 +96,13 @@ https://github.com/cvdfoundation/mnist
 
 Extract the following files into a `data/` directory:
 
-
+```
 data/
 ├── train-images-idx3-ubyte
 ├── train-labels-idx1-ubyte
 ├── t10k-images-idx3-ubyte
 └── t10k-labels-idx1-ubyte
-
+```
 
 ### Run Training
 
