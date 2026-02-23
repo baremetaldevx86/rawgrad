@@ -33,11 +33,7 @@ void sgd_zero_grad(SGD* opt) {
 }
 
 void sgd_free(SGD* opt) {
-    if (opt) {
-        if (opt->params) {
-            free(opt->params);
-        }
-        free(opt);
-    }
+    if (!opt) return;
+    free(opt);
 }
 
