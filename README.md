@@ -19,14 +19,27 @@ The rest of the codebase (linear layers, MLP, losses, optimizer) is built direct
 ## Architecture
 
 ```
-engine.c / engine.h       Core tensor type + all forward ops + autograd engine
-nn.c / nn.h               Linear layer (weights + bias, forward pass, param access)
-mlp.c / mlp.h             Multi-layer perceptron built from Linear layers
-loss.c / loss.h           MSE loss, numerically stable fused softmax cross-entropy
-optim.c / optim.h         SGD optimizer with zero_grad and lr scheduling
-mnist_loader.c            Binary IDX-format MNIST reader
-train_xor.c               XOR classification demo
-train_mnist.c             Full MNIST training loop with batching and accuracy eval
+src/
+  engine.c          Core tensor type, all forward ops, autograd engine
+  nn.c              Linear layer (weights + bias, forward, param access)
+  mlp.c             Multi-layer perceptron built from Linear layers
+  loss.c            MSE loss, numerically stable fused softmax cross-entropy
+  optim.c           SGD optimizer with zero_grad and lr scheduling
+  mnist_loader.c    Binary IDX-format MNIST reader
+
+include/
+  engine.h  nn.h  mlp.h  loss.h  optim.h  mnist_loader.h
+
+examples/
+  train.c           Minimal training demo
+  train_xor.c       XOR classification
+  train_mnist.c     Full MNIST training loop with batching and accuracy eval
+
+tests/
+  test.c
+  test_engine.c
+
+data/               Raw MNIST IDX binary files (not tracked)
 ```
 
 ---
@@ -154,14 +167,14 @@ This is the standard analytically derived gradient of cross-entropy + softmax co
 ## File map
 
 ```
-engine.c          718 lines — the whole engine
-nn.c              73 lines  — linear layer
-mlp.c             91 lines  — MLP
-loss.c            123 lines — MSE + cross-entropy
-optim.c           43 lines  — SGD
-mnist_loader.c    ~80 lines — IDX binary parser
-train_xor.c       95 lines  — demo
-train_mnist.c     203 lines — full training script
+src/engine.c          718 lines — the whole engine
+src/nn.c              73 lines  — linear layer
+src/mlp.c             91 lines  — MLP
+src/loss.c            123 lines — MSE + cross-entropy
+src/optim.c           43 lines  — SGD
+src/mnist_loader.c    ~80 lines — IDX binary parser
+examples/train_xor.c  95 lines  — XOR demo
+examples/train_mnist.c 203 lines — full MNIST training script
 ```
 
 ---
