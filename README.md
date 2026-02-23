@@ -106,7 +106,8 @@ data/
 
 ### Run Training
 
-
+```
+make
 ./train_mnist
 
 
@@ -116,7 +117,7 @@ Model created. Parameters: 6
 Training for 20 epochs | batch=32 | lr=0.0050
 Epoch 20 finished. Avg loss: 0.18
 Final Test Accuracy: 96.2%
-
+```
 
 ---
 
@@ -124,9 +125,9 @@ Final Test Accuracy: 96.2%
 
 ### XOR Classification
 
-
+```
 ./train_xor
-
+```
 
 This example demonstrates:
 - Nonlinear decision boundaries
@@ -150,7 +151,7 @@ sgd_step(opt);
 /* Cleanup: releases the entire computation graph */
 tensor_release(loss);
 tensor_release(logits);
-
+```
 Rule: If you create a tensor or receive one from an operation, you own a reference and must release it.
 
 Memory Management Model
@@ -180,14 +181,14 @@ Graph lifetime is fully controlled by the user
 Testing
 
 Run basic training test:
-
+```
 ./train
-
+```
 Run engine unit tests:
-
+```
 gcc -Wall -g -O2 -o test_engine test_engine.c engine.c -lm
 ./test_engine
-
+```
 The project is free of memory leaks, double frees, and use-after-free errors.
 
 Project Goals
