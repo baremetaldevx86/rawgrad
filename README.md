@@ -41,7 +41,7 @@ The goal is to understand how modern deep learning systems work at the lowest le
 
 ## Project Structure
 
-
+```c
 .
 ├── engine.c / engine.h # Tensor and autograd core
 ├── nn.c / nn.h # Neural network primitives
@@ -55,7 +55,7 @@ The goal is to understand how modern deep learning systems work at the lowest le
 ├── test_engine.c # Unit tests
 ├── Makefile # Build system
 └── data/ # MNIST dataset (not tracked)
-
+```
 
 ---
 
