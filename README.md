@@ -1,224 +1,171 @@
-# C Autograd Engine
+# rawgrad
 
-A lightweight, from-scratch autograd engine written in C.  
-This project implements dynamic computation graphs, reverse-mode automatic differentiation, and a minimal neural network stack without relying on external ML libraries.
+A from-scratch automatic differentiation engine written in pure C. No dependencies. No PyTorch. No Python. Just malloc, math, and gradients.
 
-The goal is to understand how modern deep learning systems work at the lowest level: tensor ownership, graph construction, backpropagation, and optimization.
-
----
-
-## Features
-
-### Core
-- Tensor system supporting scalars and 2D matrices
-- Dynamic computation graphs built at runtime
-- Reverse-mode automatic differentiation (backpropagation)
-- Explicit and deterministic memory management
-
-### Operations
-- Elementwise: Add, Sub, Mul, Pow, Exp
-- Activations: ReLU, Tanh
-- Linear algebra: MatMul
-- Loss functions: CrossEntropy, MSE
-
-### Neural Networks
-- Linear (fully connected) layers
-- Multi-Layer Perceptron (MLP)
-- ReLU-based hidden layers
-- One-hot classification support
-
-### Optimization
-- Stochastic Gradient Descent (SGD)
-- Manual learning-rate control
-- Clean separation of model and optimizer ownership
-
-### Memory Management
-- Reference counting (no garbage collector)
-- Explicit graph teardown after each iteration
-- Valgrind- and ASAN-clean execution
+Implements a dynamic computation graph with reverse-mode autodiff, a full MLP layer stack, MSE and cross-entropy losses, SGD optimizer, and ships with two training demos: XOR and MNIST.
 
 ---
 
-## Project Structure
+## What is this
+
+Most people learn backprop by reading about it. This is what it looks like when you actually build it.
+
+Every tensor tracks its own parents in a computation graph. Calling `tensor_backward()` performs a topological sort of that graph and invokes each node's backward kernel in reverse order. Gradients accumulate via the chain rule. That is the entire engine.
+
+The rest of the codebase (linear layers, MLP, losses, optimizer) is built directly on top of those primitives with no external dependencies.
+
+---
+
+## Architecture
 
 ```
-.
-├── engine.c / engine.h # Tensor and autograd core
-├── nn.c / nn.h # Neural network primitives
-├── mlp.c / mlp.h # MLP implementation
-├── loss.c / loss.h # Loss functions
-├── optim.c / optim.h # Optimizers (SGD)
-├── mnist_loader.c / .h # MNIST data loader
-├── train.c # Basic training demo
-├── train_xor.c # XOR classification example
-├── train_mnist.c # MNIST training (MLP)
-├── test_engine.c # Unit tests
-├── Makefile # Build system
-└── data/ # MNIST dataset (not tracked)
+engine.c / engine.h       Core tensor type + all forward ops + autograd engine
+nn.c / nn.h               Linear layer (weights + bias, forward pass, param access)
+mlp.c / mlp.h             Multi-layer perceptron built from Linear layers
+loss.c / loss.h           MSE loss, numerically stable fused softmax cross-entropy
+optim.c / optim.h         SGD optimizer with zero_grad and lr scheduling
+mnist_loader.c            Binary IDX-format MNIST reader
+train_xor.c               XOR classification demo
+train_mnist.c             Full MNIST training loop with batching and accuracy eval
 ```
 
 ---
 
-## Building
+## Tensor ops
 
-Requirements:
-- GCC or Clang
-- make
-- Standard C math library (`-lm`)
+Forward and backward kernels are implemented for:
 
-Build all targets:
+| Op | Notes |
+|---|---|
+| `tensor_add` | Element-wise + bias broadcast (B, C) + (1, C) |
+| `tensor_sub` | Element-wise subtraction |
+| `tensor_mul` | Element-wise multiplication |
+| `tensor_div` | Element-wise division |
+| `tensor_pow` | Element-wise power, scalar exponent supported |
+| `tensor_matmul` | (M, N) x (N, K) -> (M, K) with correct dA, dB |
+| `tensor_expn` | Element-wise exp |
+| `tensor_sqrt` | Element-wise sqrt |
+| `tensor_mean` | Reduces to scalar, distributes gradient uniformly |
+| `tensor_relu` | ReLU activation |
+| `tensor_Tanh` | Tanh activation |
+| `tensor_softmax` | Softmax (used inside fused cross-entropy) |
 
-make
+---
 
+## Memory model
 
-Build specific binaries:
+Tensors use manual reference counting. Every op that creates a new tensor retains its parents. Call `tensor_release()` on tensors you no longer hold a reference to. When the ref count hits zero, the entire subgraph is freed recursively.
 
-make train
-make train_xor
-make train_mnist
+```c
+Tensor* z   = linear_forward(layer, x);
+Tensor* a   = tensor_relu(z);
+tensor_release(z);   // z is now owned by a's parent list
+// ...
+tensor_release(a);   // frees a and recursively z
+```
 
+No garbage collector. No arena. You know where your memory is.
 
-Clean build artifacts:
+---
 
+## Build
+
+Requires only `gcc` and `libm`.
+
+```bash
+make              # builds: train, train_xor, train_mnist
 make clean
-
-
----
-
-## Training on MNIST
-
-### Dataset Setup
-
-Download the MNIST dataset from:
-
-https://github.com/cvdfoundation/mnist
-
-
-Extract the following files into a `data/` directory:
-
-```
-data/
-├── train-images-idx3-ubyte
-├── train-labels-idx1-ubyte
-├── t10k-images-idx3-ubyte
-└── t10k-labels-idx1-ubyte
-```
-
-### Run Training
-
-```
-make
-./train_mnist
-
-
-Example output:
-
-Model created. Parameters: 6
-Training for 20 epochs | batch=32 | lr=0.0050
-Epoch 20 finished. Avg loss: 0.18
-Final Test Accuracy: 96.2%
 ```
 
 ---
 
-## Other Examples
+## Run
 
-### XOR Classification
+### XOR
 
-```
+Trains a 2-4-1 MLP with Tanh activations on the XOR problem using MSE loss. Converges in well under 5000 epochs.
+
+```bash
 ./train_xor
 ```
 
-This example demonstrates:
-- Nonlinear decision boundaries
-- Correctness of end-to-end autograd and backpropagation
+```
+Training XOR with MLP (2->4->1)...
+Epoch 0, Loss: 0.254801
+Epoch 500, Loss: 0.006412
+...
+Optimization Finished!
+Predictions:
+In: [0, 0] Target: 0 Pred: 0.0183
+In: [0, 1] Target: 1 Pred: 0.9821
+In: [1, 0] Target: 1 Pred: 0.9819
+In: [1, 1] Target: 0 Pred: 0.0201
+```
+
+### MNIST
+
+Trains a 784-256-128-10 MLP with ReLU activations on raw MNIST pixels. Cross-entropy loss with softmax, SGD, batched training.
+
+Place the raw MNIST binary files in `data/`:
+```
+data/train-images-idx3-ubyte
+data/train-labels-idx1-ubyte
+data/t10k-images-idx3-ubyte
+data/t10k-labels-idx1-ubyte
+```
+
+Download from [yann.lecun.com/exdb/mnist](http://yann.lecun.com/exdb/mnist/) or any mirror.
+
+```bash
+./train_mnist
+```
+
+```
+Loading MNIST data...
+Loaded MNIST data: 60000 train, 10000 test
+Model created. Parameters: 6
+Training for 20 epochs | batch=32 | lr=0.0100
+Epoch 1 [1850/1875] loss=0.3821 lr=0.01000
+...
+Final Test Accuracy: ~95%
+```
 
 ---
 
-## Minimal Training Loop Example
+## Cross-entropy implementation
+
+The loss is implemented as a single fused op for numerical stability. It does not call `tensor_softmax` and then `tensor_log`. Instead, it computes log-softmax directly:
 
 ```c
-Tensor* x = tensor_create_matrix(32, 784);
-Tensor* y = tensor_create_matrix(32, 10);
-
-Tensor* logits = mlp_forward(model, x, 1);
-Tensor* loss   = cross_entropy_loss(logits, y);
-
-sgd_zero_grad(opt);
-tensor_backward(loss);
-sgd_step(opt);
-
-/* Cleanup: releases the entire computation graph */
-tensor_release(loss);
-tensor_release(logits);
+log_prob = (logit - max) - log(sum_exp(logits - max))
+loss     = -sum(target * log_prob) / batch_size
 ```
-Rule: If you create a tensor or receive one from an operation, you own a reference and must release it.
 
-Memory Management Model
+The backward pass recomputes softmax from the stored logits and sets:
 
-Every tensor has a reference count
-
-Ownership is explicit and deterministic
-
-Rules
-
-tensor_create*() returns a tensor with ref_count = 1
-
-tensor_retain(t) increments the reference count
-
-tensor_release(t) decrements the reference count
-
-When ref_count == 0, the tensor is freed and its parents are released recursively
-
-Design Philosophy
-
-No garbage collector
-
-No hidden frees
-
-Graph lifetime is fully controlled by the user
-
-Testing
-
-Run basic training test:
 ```
-./train
+dL/dz_j = (softmax_j - target_j) / batch_size
 ```
-Run engine unit tests:
+
+This is the standard analytically derived gradient of cross-entropy + softmax composed, implemented directly without going through the autograd graph for softmax itself.
+
+---
+
+## File map
+
 ```
-gcc -Wall -g -O2 -o test_engine test_engine.c engine.c -lm
-./test_engine
+engine.c          718 lines — the whole engine
+nn.c              73 lines  — linear layer
+mlp.c             91 lines  — MLP
+loss.c            123 lines — MSE + cross-entropy
+optim.c           43 lines  — SGD
+mnist_loader.c    ~80 lines — IDX binary parser
+train_xor.c       95 lines  — demo
+train_mnist.c     203 lines — full training script
 ```
-The project is free of memory leaks, double frees, and use-after-free errors.
 
-Project Goals
+---
 
-This project is not intended to compete with full-featured frameworks such as PyTorch or TensorFlow.
+## License
 
-It is designed to:
-
-Understand the mechanics of automatic differentiation
-
-Practice low-level ML systems design
-
-Explore explicit memory ownership in graph-based computation
-
-Serve as a base for further experimentation
-
-Future Work
-
-Momentum and Adam optimizers
-
-Inference-only forward path
-
-Convolutional neural networks
-
-Computation graph visualization
-
-Model save and load support
-
-Dataset augmentation and diagnostics
-
-License
-
-MIT License
+MIT
