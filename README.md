@@ -1,4 +1,4 @@
-# rawgrad
+# Autograd Engine in pure C 
 
 A from-scratch automatic differentiation engine written in pure C. No dependencies. No PyTorch. No Python. Just malloc, math, and gradients.
 
