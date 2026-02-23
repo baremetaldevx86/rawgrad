@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
+
 #include "engine.h"
 #include "nn.h"
 #include "mlp.h"
@@ -8,157 +10,193 @@
 #include "optim.h"
 #include "mnist_loader.h"
 
-// Configuration
-#define BATCH_SIZE 32
-#define LEARNING_RATE 0.01f
-#define EPOCHS 20
+/* ================= CONFIG ================= */
 
-// Helper: Get accuracy
-float compute_accuracy(MLP* model, MNISTData* data, int n_samples) {
-    int correct = 0;
-    
-    // Evaluate in batches to save memory
-    int eval_batch_size = 100;
-    
-    Tensor* X_batch = tensor_create_matrix(eval_batch_size, 784);
-    
-    for (int i = 0; i < n_samples; i += eval_batch_size) {
-        int current_batch_size = (i + eval_batch_size > n_samples) ? (n_samples - i) : eval_batch_size;
-        
-        // Load batch
-        // Note: For simplicity, we just reuse the fixed size tensor and ignore the tail garbage if batch is smaller
-        // In a real engine, we'd resize. Here we just keycare about the valid rows.
-        if (current_batch_size != eval_batch_size) {
-            // Lazy: Skip tail for accuracy check or handle properly
-            // Let's just break for simplicity in this C example
-            break; 
-        }
+#define BATCH_SIZE     32
+#define BASE_LR        0.01f
+#define EPOCHS         20
+#define EVAL_BATCH     100
+#define SEED           42
 
-        for (int b = 0; b < current_batch_size; b++) {
-            for (int k = 0; k < 784; k++) {
-                X_batch->data[b*784 + k] = data->images[(i + b) * 784 + k];
-            }
-        }
-        
-        Tensor* logits = mlp_forward(model, X_batch, 1); // use_relu = 1
-        
-        // Argmax
-        for (int b = 0; b < current_batch_size; b++) {
-            float max_val = -1e9f;
-            int max_idx = -1;
-            for (int k = 0; k < 10; k++) {
-                if (logits->data[b*10 + k] > max_val) {
-                    max_val = logits->data[b*10 + k];
-                    max_idx = k;
-                }
-            }
-            
-            if (max_idx == data->labels[i + b]) {
-                correct++;
-            }
-        }
-        
-        tensor_release(logits);
+/* ========================================= */
+
+/* Shuffle index array (Fisher–Yates) */
+static void shuffle_indices(int* idx, int n) {
+    for (int i = n - 1; i > 0; i--) {
+        int j = rand() % (i + 1);
+        int tmp = idx[i];
+        idx[i] = idx[j];
+        idx[j] = tmp;
     }
-    
-    tensor_release(X_batch);
-    
-    return (float)correct / (float)n_samples; // Approximate if we skipped tail
 }
 
-int main() {
-    srand(time(NULL));
-    
-    // 1. Load Data
-    printf("Loading MNIST data...\n");
-    MNISTData* train_data = load_mnist("data/train-images-idx3-ubyte", "data/train-labels-idx1-ubyte");
-    MNISTData* test_data = load_mnist("data/t10k-images-idx3-ubyte", "data/t10k-labels-idx1-ubyte");
-    
-    if (!train_data || !test_data) {
-        printf("Failed to load data. Make sure 'data' folder exists and contains unpacked MNIST files.\n");
-        return 1;
-    }
-    
-    // 2. Create Model: 784 -> 128 -> 10
-    int layer_sizes[] = {784, 256, 128, 10};
-    MLP* model = mlp_create(layer_sizes, 3);
-    
-    // 3. Optimizer
-    int n_params;
-    Tensor** params = mlp_params(model, &n_params);
-    SGD* opt = sgd_create(params, n_params, LEARNING_RATE);
-    
-    printf("Model created. Parameters: %d\n", n_params);
-    printf("Starting training for %d epochs (Batch size: %d, LR: %f)...\n", EPOCHS, BATCH_SIZE, LEARNING_RATE);
-    
-    // 4. Training Loop
-    Tensor* X_batch = tensor_create_matrix(BATCH_SIZE, 784);
-    Tensor* Y_batch = tensor_create_matrix(BATCH_SIZE, 10); // One-hot
-    
-    for (int epoch = 0; epoch < EPOCHS; epoch++) {
-        float epoch_loss = 0.0f;
-        int n_batches = train_data->n_samples / BATCH_SIZE;
-        
-        for (int b = 0; b < n_batches; b++) {
-            // Prepare batch
-            int start_idx = b * BATCH_SIZE;
-            
-            // Fill X
-            for (int i = 0; i < BATCH_SIZE; i++) {
-                for (int k = 0; k < 784; k++) {
-                    X_batch->data[i*784 + k] = train_data->images[(start_idx + i) * 784 + k];
+/* Compute accuracy on arbitrary dataset */
+static float compute_accuracy(MLP* model, MNISTData* data) {
+    int correct = 0;
+    int n = data->n_samples;
+
+    Tensor* X = tensor_create_matrix(EVAL_BATCH, 784);
+
+    for (int i = 0; i < n; i += EVAL_BATCH) {
+        int bs = (i + EVAL_BATCH > n) ? (n - i) : EVAL_BATCH;
+
+        /* Fill batch */
+        for (int b = 0; b < bs; b++) {
+            for (int k = 0; k < 784; k++) {
+                X->data[b * 784 + k] =
+                    data->images[(i + b) * 784 + k];
+            }
+        }
+
+        /* Forward (no backward called → safe) */
+        Tensor* logits = mlp_forward(model, X, 1);
+
+        for (int b = 0; b < bs; b++) {
+            int pred = 0;
+            float maxv = logits->data[b * 10];
+
+            for (int k = 1; k < 10; k++) {
+                float v = logits->data[b * 10 + k];
+                if (v > maxv) {
+                    maxv = v;
+                    pred = k;
                 }
             }
-            
-            // Fill Y (One-hot)
-            for (int i = 0; i < BATCH_SIZE * 10; i++) Y_batch->data[i] = 0.0f;
+
+            if (pred == data->labels[i + b])
+                correct++;
+        }
+
+        tensor_release(logits);
+    }
+
+    tensor_release(X);
+    return (float)correct / (float)n;
+}
+
+/* =================== MAIN =================== */
+
+int main(void) {
+    srand(SEED);
+
+    printf("Loading MNIST data...\n");
+
+    MNISTData* train =
+        load_mnist("data/train-images-idx3-ubyte",
+                   "data/train-labels-idx1-ubyte");
+
+    MNISTData* test =
+        load_mnist("data/t10k-images-idx3-ubyte",
+                   "data/t10k-labels-idx1-ubyte");
+
+    if (!train || !test) {
+        fprintf(stderr, "Failed to load MNIST data\n");
+        return 1;
+    }
+
+    printf("Loaded MNIST data: %d train, %d test\n",
+           train->n_samples, test->n_samples);
+
+    /* Model: 784 → 256 → 128 → 10 */
+    int layers[] = {784, 256, 128, 10};
+    MLP* model = mlp_create(layers, 3);
+
+    int n_params = 0;
+    Tensor** params = mlp_params(model, &n_params);
+
+    SGD* opt = sgd_create(params, n_params, BASE_LR);
+
+    printf("Model created. Parameters: %d\n", n_params);
+    printf("Training for %d epochs | batch=%d | lr=%.4f\n",
+           EPOCHS, BATCH_SIZE, BASE_LR);
+
+    /* Training buffers */
+    Tensor* X = tensor_create_matrix(BATCH_SIZE, 784);
+    Tensor* Y = tensor_create_matrix(BATCH_SIZE, 10);
+
+    /* Shuffle indices */
+    int* indices = malloc(train->n_samples * sizeof(int));
+    for (int i = 0; i < train->n_samples; i++)
+        indices[i] = i;
+
+    /* ================= TRAIN LOOP ================= */
+
+    for (int epoch = 0; epoch < EPOCHS; epoch++) {
+
+        /* LR decay */
+        float lr = BASE_LR;
+        //if (epoch >= 10) lr *= 0.01f;
+        //else if (epoch >= 5) lr *= 0.1f;
+        sgd_set_lr(opt, lr);
+
+        shuffle_indices(indices, train->n_samples);
+
+        float epoch_loss = 0.0f;
+        int n_batches = train->n_samples / BATCH_SIZE;
+
+        for (int b = 0; b < n_batches; b++) {
+            int base = b * BATCH_SIZE;
+
+            /* X */
             for (int i = 0; i < BATCH_SIZE; i++) {
-                int label = train_data->labels[start_idx + i];
-                Y_batch->data[i*10 + label] = 1.0f;
+                int idx = indices[base + i];
+                for (int k = 0; k < 784; k++) {
+                    X->data[i * 784 + k] =
+                        train->images[idx * 784 + k];
+                }
             }
-            
-            // Forward
-            Tensor* logits = mlp_forward(model, X_batch, 1);
-            
-            // Loss
-            Tensor* loss = cross_entropy_loss(logits, Y_batch);
-            epoch_loss += loss->data[0];
-            
-            // Backward
+
+            /* Y (one-hot) */
+            for (int i = 0; i < BATCH_SIZE * 10; i++)
+                Y->data[i] = 0.0f;
+
+            for (int i = 0; i < BATCH_SIZE; i++) {
+                int idx = indices[base + i];
+                Y->data[i * 10 + train->labels[idx]] = 1.0f;
+            }
+
+            Tensor* logits = mlp_forward(model, X, 1);
+            Tensor* loss = cross_entropy_loss(logits, Y);
+
+            epoch_loss += loss->data[0] * BATCH_SIZE;
+
             sgd_zero_grad(opt);
             tensor_backward(loss);
             sgd_step(opt);
-            
-            // Cleanup
+
             tensor_release(logits);
             tensor_release(loss);
-            
+
             if (b % 100 == 0) {
-                printf("\rEpoch %d [%d/%d] Loss: %.4f", epoch + 1, b, n_batches, epoch_loss / (b+1));
+                printf("\rEpoch %d [%d/%d] loss=%.4f lr=%.5f",
+                       epoch + 1, b, n_batches,
+                       epoch_loss / ((b + 1) * BATCH_SIZE),
+                       lr);
                 fflush(stdout);
             }
         }
-        
-        printf("\nEpoch %d finished. Avg Loss: %.4f\n", epoch + 1, epoch_loss / n_batches);
-        
-        // Evaluate
-        // float acc = compute_accuracy(model, test_data, 1000); // Check first 1000 for speed
-        // printf("Test Accuracy (subset): %.2f%%\n", acc * 100.0f);
+
+        epoch_loss /= (n_batches * BATCH_SIZE);
+        printf("\nEpoch %d finished. Avg loss: %.4f\n",
+               epoch + 1, epoch_loss);
     }
-    
-    // Final Test
+
+    /* ================= EVAL ================= */
+
     printf("Computing final accuracy...\n");
-    float final_acc = compute_accuracy(model, test_data, test_data->n_samples);
-    printf("Final Test Accuracy: %.2f%%\n", final_acc * 100.0f);
-    
-    // Cleanup
-    tensor_release(X_batch);
-    tensor_release(Y_batch);
-    mnist_free(train_data);
-    mnist_free(test_data);
-    mlp_free(model);
+    float acc = compute_accuracy(model, test);
+    printf("Final Test Accuracy: %.2f%%\n", acc * 100.0f);
+
+    /* ================= CLEANUP ================= */
+
+    free(indices);
+    tensor_release(X);
+    tensor_release(Y);
     sgd_free(opt);
     free(params);
-    
+    mlp_free(model);
+    mnist_free(train);
+    mnist_free(test);
+
     return 0;
 }

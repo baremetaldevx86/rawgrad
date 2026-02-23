@@ -37,3 +37,6 @@ void sgd_free(SGD* opt) {
     free(opt);
 }
 
+void sgd_set_lr(SGD* opt, float lr) {
+    if (opt) opt->lr = lr;
+}
