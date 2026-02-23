@@ -3,7 +3,7 @@ CC = gcc
 CFLAGS = -Wall -g -O2
 LDFLAGS = -lm
 
-all: train
+all: train train_xor train_mnist
 
 train: train.o engine.o nn.o mlp.o loss.o optim.o
 	$(CC) $(CFLAGS) -o train train.o engine.o nn.o mlp.o loss.o optim.o $(LDFLAGS)

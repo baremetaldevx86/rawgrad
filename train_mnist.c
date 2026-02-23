@@ -11,7 +11,7 @@
 // Configuration
 #define BATCH_SIZE 32
 #define LEARNING_RATE 0.01f
-#define EPOCHS 5
+#define EPOCHS 20
 
 // Helper: Get accuracy
 float compute_accuracy(MLP* model, MNISTData* data, int n_samples) {
@@ -80,8 +80,8 @@ int main() {
     }
     
     // 2. Create Model: 784 -> 128 -> 10
-    int layer_sizes[] = {784, 128, 10};
-    MLP* model = mlp_create(layer_sizes, 2);
+    int layer_sizes[] = {784, 256, 128, 10};
+    MLP* model = mlp_create(layer_sizes, 3);
     
     // 3. Optimizer
     int n_params;
