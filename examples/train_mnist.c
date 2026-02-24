@@ -13,7 +13,7 @@
 /* ================= CONFIG ================= */
 
 #define BATCH_SIZE     32
-#define BASE_LR        0.01f
+#define BASE_LR        0.02f
 #define EPOCHS         20
 #define EVAL_BATCH     100
 #define SEED           42
@@ -106,7 +106,7 @@ int main(void) {
 
     SGD* opt = sgd_create(params, n_params, BASE_LR);
 
-    printf("Model created. Parameters: %d\n", n_params);
+    printf("Model created. Parameters: %d\n", mlp_count_scalar_params(model));
     printf("Training for %d epochs | batch=%d | lr=%.4f\n",
            EPOCHS, BATCH_SIZE, BASE_LR);
 

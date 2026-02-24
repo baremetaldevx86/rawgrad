@@ -18,8 +18,11 @@ MLP* mlp_create(int* layer_sizes, int n_layers);
 // use_relu: 1 for ReLU activation, 0 for Tanh
 Tensor* mlp_forward(MLP* mlp, Tensor* x, int use_relu);
 
-// Get all parameters from all layers
+// Get all parameters from all layers (as tensors, for the optimizer)
 Tensor** mlp_params(MLP* mlp, int* n_params);
+
+// Count total scalar parameters (weights + biases) across all layers
+int mlp_count_scalar_params(MLP* mlp);
 
 // Free MLP memory
 void mlp_free(MLP* mlp);

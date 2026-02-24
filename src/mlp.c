@@ -79,6 +79,15 @@ Tensor** mlp_params(MLP* mlp, int* n_params) {
     return params;
 }
 
+int mlp_count_scalar_params(MLP* mlp) {
+    int total = 0;
+    for (int i = 0; i < mlp->n_layers; i++) {
+        total += mlp->layers[i]->W->size;
+        total += mlp->layers[i]->b->size;
+    }
+    return total;
+}
+
 void mlp_free(MLP* mlp) {
     if (mlp) {
         for (int i = 0; i < mlp->n_layers; i++) {
