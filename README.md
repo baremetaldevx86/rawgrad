@@ -4,8 +4,7 @@ A from-scratch automatic differentiation engine written in pure C. No frameworks
 
 Trains a 3-layer MLP on MNIST from raw pixels and reaches **98.01% test accuracy** -- all in ~1,150 lines of library code.
 
-<img width="823" height="793" alt="mnist-training" src="https://github.com/user-attachments/assets/7b712687-8b7a-4a01-b608-3ac59898a164" />
-
+<img width="823" height="780" alt="mnist-training" src="https://github.com/user-attachments/assets/bc408345-be08-4b17-a631-2288f440e64d" />
 
 ---
 
